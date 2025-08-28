@@ -11,22 +11,21 @@ import java.nio.file.StandardOpenOption;
 
 public class Engine {
     // 1. Fixed length storage
-    // 2. Deals in let's say CSV
-    // 3. Implement delete functionality later with free list.
-    private static final int FIXED_LENGTH = 32; // Example fixed length
-    private static final String DB_NAME = "database.csv";
+    // 2. Data is written in binary, binary is just another serialization format
+    // 3. Implement delete functionality later
+    private int fixedLength; 
+    private String dbName;
 
-    public void write(String record) throws IOException { // string of csv values
-        if (record.length() > FIXED_LENGTH) {
+    Engine(int fixedLength, String dbName) {
+        this.fixedLength = fixedLength;
+        this.dbName = dbName;
+    }
+
+    public void write(byte[] record) throws IOException { // string of csv values
+        if (record.length != fixedLength) {
             throw new IllegalArgumentException("Record length exceeds limit");
         }
-        
-        StringBuilder builder = new StringBuilder(record);
-        int diff = FIXED_LENGTH - record.length();
-        // append null bytes to make length full
-        for (int i = 0; i < diff; i++) {
-            builder.append("?");  
-        }
+
 
         String storeString = builder.toString();
         try {
