@@ -1,10 +1,7 @@
 package com.simplestorageengine;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
+
 
 /*
     * Table format:
@@ -15,7 +12,7 @@ import java.util.Arrays;
 
 public class Main {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         System.out.println("Hello world!");
 
         Driver driver = new Driver();

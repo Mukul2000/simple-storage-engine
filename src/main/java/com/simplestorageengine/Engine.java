@@ -1,30 +1,26 @@
 package com.simplestorageengine;
 
-import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.RandomAccessFile;
 
 public class Engine {
-    // 1. Fixed length storage
-    // 2. Data is written in binary, binary is just another serialization format
-    // 3. Implement delete functionality later
-    private int fixedLength; 
+    private int recordLength; 
+    private int fileHeaderLength; 
     private String filePath;
+    private int recordHeaderLength;
 
-    Engine(int fixedLength, String filePath) {
-        this.fixedLength = fixedLength;
+    Engine(int recordLength, String filePath, int fileHeaderLength, int recordHeaderLength) {
+        this.recordLength = recordLength;
         this.filePath = filePath;
+        this.fileHeaderLength = fileHeaderLength;
+        this.recordHeaderLength = recordHeaderLength;
+        initializeDbFile();
     }
 
     public void write(byte[] record) throws IOException { // string of csv values
-        if (record.length != fixedLength) {
+        if (record.length != recordLength) {
             throw new IllegalArgumentException("Record length exceeds limit");
         }
 
@@ -37,38 +33,80 @@ public class Engine {
         }
     }
 
-    public byte[] readRecord(long recordNumber, int recordLength) {
-        // Use RandomAccessFile for the ability to seek to a specific position.
-        try (RandomAccessFile raf = new RandomAccessFile(this.filePath, "r")) {
-            // Calculate the byte offset of the desired record.
-            long offset = recordNumber * recordLength;
-
-            // Check if the offset is within the file's bounds.
+    public byte[] read(int recordNumber) {
+        try (RandomAccessFile raf = new RandomAccessFile(filePath, "r")) {
+            long offset = fileHeaderLength + recordNumber * recordLength;
+            
             if (offset >= raf.length()) {
                 System.err.println("Error: Record number " + recordNumber + " is out of bounds.");
                 return null;
             }
 
-            // Seek to the calculated position in the file.
             raf.seek(offset);
+            byte status = raf.readByte();
+            if (status == 0) {
+                System.err.println("Error: Record " + recordNumber + " is a deleted record.");
+                return null;
+            }
 
-            // Create a byte array to hold the record data.
-            byte[] recordData = new byte[recordLength];
-
-            // Read the record from the file.
+            raf.skipBytes(8); // Skip the next-free pointer
+            
+            byte[] recordData = new byte[recordLength - recordHeaderLength];
             int bytesRead = raf.read(recordData);
 
-            // Verify that we read the entire record.
-            if (bytesRead != recordLength) {
-                System.err.println("Error: Incomplete record read. Expected " + recordLength +
-                                   " bytes, but read " + bytesRead + ".");
-                throw new IOException("Incomplete record read");
+            if (bytesRead != recordLength - recordHeaderLength) {
+                return null;
             }
+
             return recordData;
+
         } catch (IOException e) {
-            System.err.println("An I/O error occurred while reading the file: " + e.getMessage());
             e.printStackTrace();
             return null;
+        }
+    }
+
+    // search a record by it's ID and return the record number
+    public int searchRecordById(int id) {
+        try (RandomAccessFile raf = new RandomAccessFile(filePath, "r")) {
+            long numRecords = (raf.length() - fileHeaderLength) / recordLength;
+
+            for (int i = 0; i < numRecords; i++) {
+                // Seek to the start of the current record.
+                long offset = fileHeaderLength + i * recordLength;
+                raf.seek(offset);
+
+                // Read the status byte and check if the record is active.
+                byte status = raf.readByte();
+                if (status == 1) {
+                    // Skip the next-free pointer.
+                    raf.skipBytes(8);
+                    
+                    // Read the ID of the current record.
+                    int currentId = raf.readInt();
+                    if (currentId == id) {
+                        return i;
+                    }
+                }
+            }
+            return -1;
+        } catch (IOException e) {
+            System.err.println("An I/O error occurred during search: " + e.getMessage());
+            e.printStackTrace();
+            return -1;
+        }
+    }
+
+    private void initializeDbFile() {
+        File file = new File(filePath);
+        if (!file.exists() || file.length() < fileHeaderLength) {
+            try (RandomAccessFile raf = new RandomAccessFile(file, "rw")) {
+                // Write the initial free list pointer (0, indicating an empty list).
+                raf.writeLong(0);
+            } catch (IOException e) {
+                System.err.println("Error initializing file header: " + e.getMessage());
+                e.printStackTrace();
+            }
         }
     }
 }
