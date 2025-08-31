@@ -66,6 +66,31 @@ public class Engine {
         }
     }
 
+    public void deleteRecord(int recordNumber) throws IOException {
+        try (RandomAccessFile raf = new RandomAccessFile(filePath, "rw")) {
+            raf.seek(0);
+            long nextToHead = raf.readLong();
+            int offset = fileHeaderLength + recordNumber * recordLength;
+            if (offset >= raf.length()) {
+                System.err.println("Error: Record number " + recordNumber + " is out of bounds.");
+                return;
+            }
+
+            // add this deleted record next to the head of the free list.
+            // insertions become very fast
+            raf.seek(offset);
+            raf.write(0); // Mark the record as deleted by setting the tombstone byte to 0.
+            raf.writeLong(nextToHead);
+
+            raf.seek(0);
+            raf.writeLong(recordNumber); // freelist stores record number of the next record
+        } catch (IOException e) {
+            System.err.println("An I/O error occurred while marking the record as deleted: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+    }
+
     // search a record by it's ID and return the record number
     public int searchRecordById(int id) {
         try (RandomAccessFile raf = new RandomAccessFile(filePath, "r")) {
