@@ -24,12 +24,22 @@ public class Engine {
             throw new IllegalArgumentException("Record length exceeds limit");
         }
 
-        try (FileOutputStream fos = new FileOutputStream(this.filePath, true)) {
-            // 3. Write the entire block of binary data to the file.
-            fos.write(record);
-        } catch (IOException e) {
-            System.err.println("An I/O error occurred while writing to the file: " + e.getMessage());
+        try (RandomAccessFile raf = new RandomAccessFile(filePath, "rw")) {
+            // 1. Check the free list pointer in the file header to see if there are any deleted records that can be reused.
+            raf.seek(0);
+            long freeListHead = raf.readLong();
+            if (freeListHead != 0) {
+                // 2. If there are deleted records, reuse the space of the first deleted record in the free list.
+                long offset = fileHeaderLength + freeListHead * recordLength;
+                raf.seek(offset);
+            } else {
+                raf.seek(raf.length()); // append to the end of the file
+            }
+            raf.write(record);
+        } catch(IOException e) {
+            System.err.println("An I/O error occurred while accessing the file: " + e.getMessage());
             e.printStackTrace();
+            throw e;
         }
     }
 
@@ -63,6 +73,31 @@ public class Engine {
         } catch (IOException e) {
             e.printStackTrace();
             return null;
+        }
+    }
+
+    public void deleteRecord(int recordNumber) throws IOException {
+        try (RandomAccessFile raf = new RandomAccessFile(filePath, "rw")) {
+            raf.seek(0);
+            long nextToHead = raf.readLong();
+            int offset = fileHeaderLength + recordNumber * recordLength;
+            if (offset >= raf.length()) {
+                System.err.println("Error: Record number " + recordNumber + " is out of bounds.");
+                return;
+            }
+
+            // add this deleted record next to the head of the free list.
+            // insertions become very fast
+            raf.seek(offset);
+            raf.write(0); // Mark the record as deleted by setting the tombstone byte to 0.
+            raf.writeLong(nextToHead);
+
+            raf.seek(0);
+            raf.writeLong(recordNumber); // freelist stores record number of the next record
+        } catch (IOException e) {
+            System.err.println("An I/O error occurred while marking the record as deleted: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
         }
     }
 
