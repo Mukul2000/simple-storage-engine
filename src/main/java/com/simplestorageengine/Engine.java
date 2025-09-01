@@ -11,7 +11,7 @@ public class Engine {
     private String filePath;
     private int recordHeaderLength;
 
-    Engine(int recordLength, String filePath, int fileHeaderLength, int recordHeaderLength) {
+    Engine(int recordLength, String filePath, int fileHeaderLength, int recordHeaderLength) throws IOException {
         this.recordLength = recordLength;
         this.filePath = filePath;
         this.fileHeaderLength = fileHeaderLength;
@@ -43,7 +43,7 @@ public class Engine {
         }
     }
 
-    public byte[] read(int recordNumber) {
+    public byte[] read(int recordNumber) throws IOException {
         try (RandomAccessFile raf = new RandomAccessFile(filePath, "r")) {
             long offset = fileHeaderLength + recordNumber * recordLength;
             
@@ -65,14 +65,14 @@ public class Engine {
             int bytesRead = raf.read(recordData);
 
             if (bytesRead != recordLength - recordHeaderLength) {
-                return null;
+                throw new IOException("Failed to read the complete record data."); 
             }
 
             return recordData;
 
         } catch (IOException e) {
             e.printStackTrace();
-            return null;
+            throw e;
         }
     }
 
@@ -83,7 +83,7 @@ public class Engine {
             int offset = fileHeaderLength + recordNumber * recordLength;
             if (offset >= raf.length()) {
                 System.err.println("Error: Record number " + recordNumber + " is out of bounds.");
-                return;
+                throw new IOException("Record number out of bounds");
             }
 
             // add this deleted record next to the head of the free list.
@@ -132,7 +132,7 @@ public class Engine {
         }
     }
 
-    private void initializeDbFile() {
+    private void initializeDbFile() throws IOException{
         File file = new File(filePath);
         if (!file.exists() || file.length() < fileHeaderLength) {
             try (RandomAccessFile raf = new RandomAccessFile(file, "rw")) {
@@ -141,6 +141,7 @@ public class Engine {
             } catch (IOException e) {
                 System.err.println("Error initializing file header: " + e.getMessage());
                 e.printStackTrace();
+                throw e;
             }
         }
     }
