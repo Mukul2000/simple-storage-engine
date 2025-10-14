@@ -134,6 +134,8 @@ public class Engine {
 
     private void initializeDbFile() throws IOException{
         File file = new File(filePath);
+        file.delete();
+        file.createNewFile();
         if (!file.exists() || file.length() < fileHeaderLength) {
             try (RandomAccessFile raf = new RandomAccessFile(file, "rw")) {
                 // Write the initial free list pointer (0, indicating an empty list).

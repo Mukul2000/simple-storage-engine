@@ -10,11 +10,11 @@ public class Driver {
     private static final int NAME_LENGTH = 40;
     private static final int RECORD_LENGTH = 100 + RECORD_HEADER_LENGTH;
     private static final String filePath = "database.dat";
+    private Engine engine;
 
-    Engine engine;
-
-    Driver() {
-        engine = new Engine(RECORD_LENGTH, filePath, FILE_HEADER_LENGTH, RECORD_HEADER_LENGTH);
+    Driver(Engine engine) throws IOException {
+        // this.engine = new Engine(RECORD_LENGTH, filePath, FILE_HEADER_LENGTH, RECORD_HEADER_LENGTH);
+        this.engine = engine; 
     }
 
     public void run() {
@@ -61,7 +61,7 @@ public class Driver {
     //     }
     // }
 
-    private void insertRecord(int id, int age, String name) throws IOException {
+    public void insertRecord(int id, int age, String name) throws IOException {
         // Create a ByteBuffer with the fixed record length.
         ByteBuffer buffer = ByteBuffer.allocate(RECORD_LENGTH);
 
@@ -85,7 +85,7 @@ public class Driver {
         engine.write(recordBuffer);
     }
 
-    private void readRecord(int id) {
+    public void readRecord(int id) throws IOException{
         int recordNumber = engine.searchRecordById(id);
         if (recordNumber == -1) {
             System.out.println("Record with ID " + id + " not found.");

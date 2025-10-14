@@ -4,6 +4,7 @@ import org.junit.Test;
 import static org.mockito.Mockito.*;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
@@ -13,10 +14,32 @@ public class EngineTest {
     private static final int FILE_HEADER_LENGTH = 8; // 8 bytes for free list pointer 
     private static final int NAME_LENGTH = 40;
     private static final int RECORD_LENGTH = 100 + RECORD_HEADER_LENGTH;
-    private static final String filePath = "database_test.dat";
+    private static final String FILE_PATH = "test/database_test.dat";
 
     @Test
-    public void write_record_success() throws IOException {}
+    public void write_record_success() throws IOException {
+        Engine engine = new Engine(RECORD_LENGTH, FILE_PATH, FILE_HEADER_LENGTH, RECORD_HEADER_LENGTH);
+        Driver driver = new Driver(engine);
+
+        driver.insertRecord(1, 1, "write_test");
+
+        byte[] record = engine.read(0);
+        assertThat(record).isNotNull();
+        assertThat(record.length).isEqualTo(RECORD_LENGTH);
+
+        // Verify the contents of the record
+        ByteBuffer buffer = ByteBuffer.wrap(record);
+
+        int id = buffer.getInt();
+        int age = buffer.getInt();
+        byte[] nameBytes = new byte[NAME_LENGTH];
+        buffer.get(nameBytes);
+        String name = new String(nameBytes).trim();
+
+        assertThat(id).isEqualTo(1);
+        assertThat(age).isEqualTo(1);
+        assertThat(name).isEqualTo("write_test");
+    }
 
     @Test
     public void write_record_recordLengthExceedsLimit_throwsException() {}
